@@ -18,7 +18,7 @@ AutoML systems automate tasks like **feature selection, model selection, hyperpa
 - **Hutter et al. (2019)** developed **Auto-PyTorch**, an extension for deep learning AutoML.  
 - **Google AutoML (2018)** allows users to train custom models without writing code.  
 
-🔹 **Relevance to Zero-Code ML:** These studies provide insights into **automated model selection, training, and optimization**, which are core features of a no-code ML system.  
+ **Relevance to Zero-Code ML:** These studies provide insights into **automated model selection, training, and optimization**, which are core features of a no-code ML system.  
 
 ---
 
@@ -34,7 +34,7 @@ Several commercial and open-source no-code ML tools exist:
 - **Mendonça et al. (2021)** analyzed no-code ML tools and found that most still require **domain expertise**.  
 - **Wu et al. (2022)** highlighted UI/UX challenges in making AutoML tools fully no-code.  
 
-🔹 **Relevance to Zero-Code ML:** The survey helps in designing an intuitive UI that minimizes the **learning curve** for non-experts.  
+ **Relevance to Zero-Code ML:** The survey helps in designing an intuitive UI that minimizes the **learning curve** for non-experts.  
 
 ---
 
@@ -44,13 +44,13 @@ Several commercial and open-source no-code ML tools exist:
 - **Zhang et al. (2020)** found that **80% of ML development time** is spent on **data cleaning**.  
 - **Kandel et al. (2011)** emphasized the need for **automated preprocessing** to ensure data quality.  
 
-🔹 **Solution for Zero-Code ML:** Implementing **automated data validation** and **error handling mechanisms**.  
+ **Solution for Zero-Code ML:** Implementing **automated data validation** and **error handling mechanisms**.  
 
 ### **3.2 Model Explainability**  
 - **Lundberg & Lee (2017)** introduced **SHAP (SHapley Additive exPlanations)** for interpreting ML models.  
 - **Doshi-Velez & Kim (2017)** stressed that black-box models in AutoML can reduce user trust.  
 
-🔹 **Solution for Zero-Code ML:** Integrate **explainability tools** (e.g., SHAP, LIME) to help users understand model predictions.  
+ **Solution for Zero-Code ML:** Integrate **explainability tools** (e.g., SHAP, LIME) to help users understand model predictions.  
 
 ---
 
