@@ -58,20 +58,19 @@ def send_otp(email, full_name=None, username=None, purpose="signup"):
 
 
 def signup_user(full_name, username, email, password):
-    user = pending_users_collection.find_one({"email": email})
-    if not user or not user.get("otp_verified"):
-        return False, "OTP not verified or email not found."
+    # user = pending_users_collection.find_one({"email": email})
+    # if not user or not user.get("otp_verified"):
+    #     return False, "OTP not verified or email not found."
 
     # Now move to main users collection
     hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     users_collection.insert_one({
-        "full_name": user["full_name"],
-        "username": user["username"],
-        "email": user["email"],
+        "full_name": full_name,
+        "username": username,
+        "email": email,
         "password": hashed_pw
     })
     # Clean up pending user
-    pending_users_collection.delete_one({"email": email})
     return True, "Signup successful!"
 
 def login_user(identifier, password):
