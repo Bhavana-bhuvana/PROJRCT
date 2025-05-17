@@ -29,11 +29,11 @@ st.sidebar.title("Navigation")
 
 if st.sidebar.button("Upload Data"):
     st.session_state.page = "upload"
-    st.experimental_rerun()
+    st.rerun()
 
 if st.sidebar.button("Data Cleaning"):
     st.session_state.page = "Data Cleaning"
-    st.experimental_rerun()
+    st.rerun()
 
 if "raw_data" in st.session_state:
     with st.sidebar.expander("Original Dataset"):
@@ -51,14 +51,14 @@ if st.session_state.selected_models:
             if st.button(f"{model}", key=f"goto_{model}"):
                 log_user_action(st.session_state.get("user_email", "anonymous"), f"Switched to model: {model}")
                 st.session_state.page = model
-                st.experimental_rerun()
+                st.rerun()
         with col2:
             if st.button("❌", key=f"remove_{model}"):
                 st.session_state.selected_models.remove(model)
                 log_user_action(st.session_state.get("user_email", "anonymous"), f"Removed model: {model}")
                 if st.session_state.page == model:
                     st.session_state.page = "model_selection"
-                st.experimental_rerun()
+                st.rerun()
 
 # Only show model options after data is uploaded
 submodels = {
@@ -108,7 +108,7 @@ if st.sidebar.button("Upload New Data"):
     st.session_state.page = "upload"
     st.session_state.selected_models = []
     st.session_state.model_results = {}
-    st.experimental_rerun()
+    st.rerun()
 
 # Main Area Routing
 if st.session_state.page == "upload":
