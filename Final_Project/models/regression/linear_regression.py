@@ -146,12 +146,18 @@ def linear_regression_page(data):
             prediction = model.predict(input_array)
         st.success(f"Predicted {target}: {round(prediction[0], 4)}")
         st.session_state[MODEL_KEY]["last_prediction"] = float(prediction[0])
-
+        
     st.markdown("---")
     st.subheader("Regression Plot (Scatter + Line)")
     fig = px.scatter(x=X_test[features[0]], y=y_test, labels={'x': features[0], 'y': target}, title="Regression Fit")
     fig.add_scatter(x=X_test[features[0]], y=test_pred, mode='lines', name='Prediction Line', line=dict(color='red'))
     st.plotly_chart(fig)
+
+    if st.session_state[MODEL_KEY]["history"]:
+        st.markdown("---")
+        st.subheader("Prediction History")
+        history_df = pd.DataFrame(st.session_state[MODEL_KEY]["history"])
+        st.dataframe(history_df, use_container_width=True)
 
     st.markdown("---")
     st.subheader("Correlation Heatmap")
