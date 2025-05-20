@@ -1,8 +1,14 @@
 import streamlit as st
 from model_manager import run_selected_model
 from ui_manager import display_upload_ui, display_cleaning_ui
-from db import log_user_action  # MongoDB logger
+from db import log_user_action,users_col,logs_col # MongoDB logger
 from login_signup import login_signup_ui
+from history import show_history_page
+from datetime import datetime, timedelta, timezone
+from db import logs_col  # Assuming logs_col is your MongoDB logs collection
+from PIL import Image
+import base64
+from io import BytesIO
 
 # Ensure user is logged in before using the app
 if "logged_in" not in st.session_state or not st.session_state.logged_in:
@@ -11,7 +17,66 @@ if "logged_in" not in st.session_state or not st.session_state.logged_in:
 
 # Page Config
 st.set_page_config(page_title="ML Playground", layout="wide")
-st.title("Machine Learning Playground")
+
+# Header with controls
+col1, col2, col3, col4, col5 = st.columns([5, 1, 1, 1, 1])
+with col2:
+    if st.button("History"):
+        st.session_state["page"] = "history"
+with col3:
+    if st.button("My Profile"):
+        st.session_state["page"] = "profile"
+with col4:
+    if st.button("Reset Session"):
+        preserved = {
+            "logged_in": st.session_state.logged_in,
+            "user_email": st.session_state.get("user_email"),
+            "user_name": st.session_state.get("user_name"),
+        }
+        st.session_state.clear()
+        st.session_state.update(preserved)
+        st.success("Session reset successfully.")
+        st.rerun()
+with col5:
+    if st.button(" Logout"):
+        st.session_state.clear()
+        st.rerun()
+# Session State Init
+if "page" not in st.session_state:
+    st.session_state.page = "upload"
+if st.session_state.page=="profile":
+    st.markdown("---")
+    st.subheader("👤 My Profile")
+
+    # Get logged in user's email or username
+    user_email = st.session_state.get("user_email", None)
+
+    if not user_email:
+        st.error("User email not found in session.")
+        st.stop()
+
+    # Fetch user info from MongoDB
+    user_data = users_col.find_one({"email": user_email})
+
+    if not user_data:
+        st.warning("User profile not found.")
+    else:
+        st.markdown(f"*Full Name:* {user_data.get('full_name', 'N/A')}")
+        st.markdown(f"*Username:* {user_data.get('username', 'N/A')}")
+        st.markdown(f"*Email:* {user_data.get('email', 'N/A')}")
+
+    st.markdown("---")
+    st.button("🔙 Back to Home", on_click=lambda: st.session_state.update({"page": "upload"}))
+    st.stop()
+
+
+if st.session_state.page == "history":
+    button=st.button("🔙 Back to Home", on_click=lambda: st.session_state.update({"page": "upload"}))
+    if(button):
+        st.stop()
+    st.markdown("---")
+    show_history_page()
+
 st.caption("Upload a dataset and apply Regression, Classification, or Clustering models.")
 
 # Session State Init
@@ -97,18 +162,12 @@ if available_submodels:
                 st.session_state.selected_models.append(model_key)
                 log_user_action(st.session_state.get("user_email", "anonymous"), f"Added model: {model_key}")
         st.session_state.page = f"{selected_main_model}: {selected_submodels[0]}"
-        st.experimental_rerun()
+        st.rerun()
 else:
     st.sidebar.info("All models added.")
 
 st.sidebar.markdown("---")
 
-if st.sidebar.button("Upload New Data"):
-    log_user_action(st.session_state.get("user_email", "anonymous"), "Started new data upload")
-    st.session_state.page = "upload"
-    st.session_state.selected_models = []
-    st.session_state.model_results = {}
-    st.rerun()
 
 # Main Area Routing
 if st.session_state.page == "upload":
@@ -117,5 +176,12 @@ elif st.session_state.page == "Data Cleaning":
     display_cleaning_ui()
 elif st.session_state.page in st.session_state.selected_models:
     run_selected_model(st.session_state.page, st.session_state.get("cleaned_data", st.session_state.get("raw_data")))
-else:
-    st.error("Invalid page state.")
+elif st.session_state.page == "Results":
+    if st.session_state.model_results:
+        st.success(" Model Results Displayed Below:")
+        for model_name, results in st.session_state.model_results.items():
+            st.subheader(f"Model: {model_name}")
+            st.write(results)
+    else:
+        st.info("No model results available yet.")
+
