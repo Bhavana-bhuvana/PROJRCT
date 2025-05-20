@@ -8,8 +8,13 @@ from datetime import datetime
 import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.express as px
+import io
+import base64
 
-def linear_regression_page(data):
+# Your external logging function
+from db import save_log  
+
+def linear_regression_page(data, user_email=None):
     st.header("Linear Regression Model")
     MODEL_KEY = "regression_linear"
 
@@ -27,13 +32,21 @@ def linear_regression_page(data):
         }
 
     if data is None or data.empty or data.columns.empty:
-        st.warning(" Please upload and preprocess a dataset with valid columns before using this model.")
+        st.warning("Please upload and preprocess a dataset with valid columns before using this model.")
         return
 
-    features = st.multiselect("Select feature columns (X):", options=data.columns, default=st.session_state[MODEL_KEY]["features"])
-    target = st.selectbox("Select target column (y):", options=data.columns, index=data.columns.get_loc(st.session_state[MODEL_KEY]["target"]) if st.session_state[MODEL_KEY]["target"] in data.columns else 0)
+    # Feature and target selection
+    features = st.multiselect(
+        "Select feature columns (X):",
+        options=data.columns,
+        default=st.session_state[MODEL_KEY]["features"]
+    )
+    target = st.selectbox(
+        "Select target column (y):",
+        options=data.columns,
+        index=data.columns.get_loc(st.session_state[MODEL_KEY]["target"]) if st.session_state[MODEL_KEY]["target"] in data.columns else 0
+    )
 
-    # Validate selections
     if not features or not target or target in features:
         st.warning("Please select valid feature(s) and target.")
         return
@@ -44,17 +57,25 @@ def linear_regression_page(data):
     X = data[features]
     y = data[target]
 
-    # Train-test split
+    # Train-test split slider with explanation
     with st.expander("Train-Test Split Explanation"):
         st.markdown("""
         Adjust the ratio to control how much data is used to train vs. test the model.
         A high test split can reveal overfitting issues.
         """)
 
-    split_ratio = st.slider("Train-Test Split", min_value=0.1, max_value=0.9, value=st.session_state[MODEL_KEY]["split_ratio"], step=0.05)
+    split_ratio = st.slider(
+        "Train-Test Split (Test Size)",
+        min_value=0.1,
+        max_value=0.9,
+        value=st.session_state[MODEL_KEY]["split_ratio"],
+        step=0.05
+    )
     st.session_state[MODEL_KEY]["split_ratio"] = split_ratio
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=split_ratio)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=split_ratio, random_state=42
+    )
 
     # Train model
     model = LinearRegression()
@@ -76,6 +97,7 @@ def linear_regression_page(data):
     })
     st.dataframe(coef_df, use_container_width=True)
 
+    # Performance summary
     r2_train = r2_score(y_train, train_pred)
     r2_test = r2_score(y_test, test_pred)
 
@@ -84,16 +106,27 @@ def linear_regression_page(data):
     st.metric("Test R²", f"{r2_test:.4f}")
 
     if r2_train > 0.9 and r2_test < 0.6:
-        st.warning(" Possible Overfitting: Model performs well on training but poorly on test data.")
+        st.warning("Possible Overfitting: Model performs well on training but poorly on test data.")
     elif r2_train < 0.5 and r2_test < 0.5:
-        st.warning(" Possible Underfitting: Model is not learning the pattern from training data.")
+        st.warning("Possible Underfitting: Model is not learning the pattern from training data.")
 
+    # Customize coefficients and intercept
     st.subheader("Customize Coefficients & Intercept")
-    new_intercept = st.number_input("Intercept", value=st.session_state[MODEL_KEY]["intercept"], format="%.4f", step=0.1)
+    new_intercept = st.number_input(
+        "Intercept",
+        value=st.session_state[MODEL_KEY]["intercept"],
+        format="%.4f",
+        step=0.1
+    )
     new_coeffs = []
     for i, feature in enumerate(features):
         coeff_val = st.session_state[MODEL_KEY]["coefficients"][i] if i < len(st.session_state[MODEL_KEY]["coefficients"]) else 0.0
-        coeff = st.number_input(f"Coefficient for {feature}", value=coeff_val, format="%.4f", step=0.1)
+        coeff = st.number_input(
+            f"Coefficient for {feature}",
+            value=coeff_val,
+            format="%.4f",
+            step=0.1
+        )
         new_coeffs.append(coeff)
 
     if st.button("Apply Custom Parameters"):
@@ -122,17 +155,32 @@ def linear_regression_page(data):
         st.metric("MSE", f"{mse:.4f}")
         st.metric("RMSE", f"{rmse:.4f}")
 
+    # Show history of changes if any
     if st.session_state[MODEL_KEY]["history"]:
         st.markdown("---")
         st.subheader("Change History")
         hist_df = pd.DataFrame(st.session_state[MODEL_KEY]["history"])
         st.dataframe(hist_df, use_container_width=True)
 
+        # Download history CSV
+        csv = hist_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Download History CSV",
+            data=csv,
+            file_name="linear_regression_history.csv",
+            mime="text/csv"
+        )
+
     st.markdown("---")
     st.subheader("Predict New Data Point")
     new_data = {}
     for feature in features:
-        val = st.number_input(f"Enter value for {feature}:", value=0.0, format="%.4f", key=f"predict_{feature}")
+        val = st.number_input(
+            f"Enter value for {feature}:",
+            value=0.0,
+            format="%.4f",
+            key=f"predict_{feature}"
+        )
         new_data[feature] = val
 
     st.session_state[MODEL_KEY]["new_input"] = new_data
@@ -146,40 +194,83 @@ def linear_regression_page(data):
             prediction = model.predict(input_array)
         st.success(f"Predicted {target}: {round(prediction[0], 4)}")
         st.session_state[MODEL_KEY]["last_prediction"] = float(prediction[0])
-        
+
     st.markdown("---")
     st.subheader("Regression Plot (Scatter + Line)")
-    fig = px.scatter(x=X_test[features[0]], y=y_test, labels={'x': features[0], 'y': target}, title="Regression Fit")
+
+    fig = px.scatter(
+        x=X_test[features[0]], y=y_test,
+        labels={'x': features[0], 'y': target},
+        title="Regression Fit"
+    )
     fig.add_scatter(x=X_test[features[0]], y=test_pred, mode='lines', name='Prediction Line', line=dict(color='red'))
     st.plotly_chart(fig)
 
-    if st.session_state[MODEL_KEY]["history"]:
-        st.markdown("---")
-        st.subheader("Prediction History")
-        history_df = pd.DataFrame(st.session_state[MODEL_KEY]["history"])
-        st.dataframe(history_df, use_container_width=True)
+    # --- Fix for image buffer handling ---
+    img_buffer = io.BytesIO()
+    fig.write_image(img_buffer, format='png')
+    img_buffer.seek(0)
+
+    # Base64 encoding for logging
+    plot_image_base64 = base64.b64encode(img_buffer.read()).decode('utf-8')
+    img_buffer.seek(0)
+
+    st.download_button(
+        label="📥 Download Regression Plot",
+        data=img_buffer,
+        file_name="linear_regression_plot.png",
+        mime="image/png"
+    )
 
     st.markdown("---")
     st.subheader("Correlation Heatmap")
+
     with st.expander("Show correlation between features and target"):
         corr = data[[*features, target]].corr()
         fig_corr, ax = plt.subplots()
         sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax)
         st.pyplot(fig_corr)
 
-    with st.expander("What do these metrics mean?"):
-        st.markdown("""
-        - **Intercept**: Predicted value when all features are zero.
-        - **Coefficient**: Effect of one-unit increase in a feature on the target.
-        - **R² Score**: Fraction of variance explained (1 is perfect).
-        - **MAE**: Average of absolute prediction errors.
-        - **MSE**: Average of squared prediction errors.
-        - **RMSE**: Square root of MSE – same units as target.
-        - **Overfitting**: High train performance, poor test performance.
-        - **Underfitting**: Poor performance on both train and test.
-        """)
+        corr_buffer = io.BytesIO()
+        fig_corr.savefig(corr_buffer, format='png', bbox_inches='tight')
+        corr_buffer.seek(0)
 
-    # Optional: Reset button
-    if st.button("Reset Session"):
-        st.session_state.pop(MODEL_KEY, None)
-        st.rerun()
+        corr_image_bytes = corr_buffer.getvalue()
+        corr_image_base64 = base64.b64encode(corr_image_bytes).decode('utf-8')
+
+        st.download_button(
+            label="📥 Download Correlation Heatmap",
+            data=corr_image_bytes,
+            file_name="correlation_heatmap.png",
+            mime="image/png",
+            key="download_corr"
+        )
+
+        corr_buffer.close()
+
+    # Prepare session log data for saving
+    session_data = {
+        "timestamp": datetime.now().isoformat(),
+        "model": "Linear Regression",
+        "features": features,
+        "target": target,
+        "train_test_split": split_ratio,
+        "metrics": {
+            "train_r2": round(r2_train, 4),
+            "test_r2": round(r2_test, 4),
+        },
+        "custom_params": {
+            "intercept": new_intercept,
+            "coefficients": new_coeffs
+        },
+        "prediction_history": st.session_state[MODEL_KEY]["history"],
+        "last_prediction": st.session_state[MODEL_KEY]["last_prediction"],
+        "plot_image_base64": plot_image_base64,
+        "correlation_heatmap_base64": corr_image_base64
+    }
+    user_email = st.session_state.get("user_email", None)
+    if not user_email:
+        st.error("User email not found in session.")
+        st.stop()
+    else:
+        save_log(user_email, "Regression", "Linear Regression", session_data)
