@@ -3,7 +3,7 @@ from model_manager import run_selected_model
 from ui_manager import display_upload_ui, display_cleaning_ui
 from db import log_user_action,users_col,logs_col # MongoDB logger
 from login_signup import login_signup_ui
-from history import show_history_page
+# from history import show_history_page
 from datetime import datetime, timedelta, timezone
 from db import logs_col  # Assuming logs_col is your MongoDB logs collection
 from PIL import Image
@@ -68,6 +68,11 @@ if st.session_state.page=="profile":
     st.markdown("---")
     st.button("🔙 Back to Home", on_click=lambda: st.session_state.update({"page": "upload"}))
     st.stop()
+#Function to decode and display base64 image
+def display_base64_image(base64_str, caption="Image"):
+    image_data = base64.b64decode(base64_str)
+    image = Image.open(BytesIO(image_data))
+    st.image(image, caption=caption)
 
 
 if st.session_state.page == "history":
@@ -75,7 +80,64 @@ if st.session_state.page == "history":
     if(button):
         st.stop()
     st.markdown("---")
-    show_history_page()
+    st.subheader("📜 My Activity History")
+    user_email = st.session_state.get("user_email", None)
+    if not user_email:
+        st.error("User email not found in session.")
+        st.stop()
+
+    # Step 1: Fetch the user's log document
+    user_log = logs_col.find_one({"email": user_email})
+
+    if not user_log or "actions" not in user_log:
+        st.info("No activity history found.")
+    else:
+        # Step 2: Extract and sort actions by timestamp descending
+        sorted_actions = sorted(user_log["actions"], key=lambda x: x.get("timestamp", ""), reverse=True)
+        IST = timezone(timedelta(hours=5, minutes=30))
+        # Step 3: Display each action
+        for entry in sorted_actions:
+            action = entry.get("action", "Unknown Action")
+            timestamp_utc = entry.get("timestamp", "No Time Recorded")
+            details = entry.get("details", {})
+
+            # Convert timestamp to IST format if valid
+            try:
+                if isinstance(timestamp_utc, str):
+                # Convert string to datetime, assuming no timezone info (i.e., naive UTC)
+                    utc_dt = datetime.strptime(timestamp_utc, "%Y-%m-%d %H:%M:%S.%f")
+                    utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+                elif isinstance(timestamp_utc, datetime):
+                # Already a datetime object — just set UTC if naive
+                    utc_dt = timestamp_utc if timestamp_utc.tzinfo else timestamp_utc.replace(tzinfo=timezone.utc)
+                else:
+                    raise ValueError("Unrecognized timestamp format")
+
+                # Convert to IST and format
+                ist_dt = utc_dt.astimezone(IST)
+                formatted_time = ist_dt.strftime("%d/%m/%Y %H:%M:%S")
+            except Exception as e:
+                formatted_time = f"Invalid timestamp: {timestamp_utc} ({e})"
+
+            with st.container():
+                st.markdown(f"**🕒 {formatted_time}**")
+                st.markdown(f"**Action:** {action}")
+                if details:
+                    st.markdown("**Details:**")
+                    one = "regression_plot"
+                    two = "correlation_heatmap"
+
+                    #Fetch the actual base64 values using the keys stored in one and two
+                    one_value = details.get(one, "")
+                    two_value = details.get(two, "")
+                    display_base64_image(one_value, caption="Regression Plot")
+                    display_base64_image(two_value, caption="Correlation Heatmap")
+                    for key, val in details.items():
+                        # if key=="regression_plot" or key=="correlation_heatmap":
+                        #     continue
+                        st.markdown(f"- {key.capitalize()}: {val}")
+                st.markdown("---")
+   
 
 st.caption("Upload a dataset and apply Regression, Classification, or Clustering models.")
 
@@ -184,4 +246,3 @@ elif st.session_state.page == "Results":
             st.write(results)
     else:
         st.info("No model results available yet.")
-
